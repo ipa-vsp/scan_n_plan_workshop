@@ -10,13 +10,17 @@
 #include <moveit/robot_trajectory/robot_trajectory.h>
 #include <geometric_shapes/shapes.h> 
 #include <geometric_shapes/mesh_operations.h>
-#include <shape_msgs/msg/mesh.h>
+#include <geometric_shapes/shape_operations.h>
+#include <shape_msgs/msg/mesh.hpp>
+#include <moveit/planning_scene_monitor/planning_scene_monitor.h>
+#include <moveit/planning_scene/planning_scene.h>
+#include <moveit/moveit_cpp/planning_component.h>
 
 #include <snp_msgs/srv/generate_motion_plan.hpp>
 #include <snp_msgs/srv/generate_freespace_motion_plan.hpp>
 #include <snp_msgs/msg/tool_path.hpp>
 #include <std_srvs/srv/empty.hpp>
-#include <tesseract_common/eigen_types.h>
+// #include <tesseract_common/eigen_types.h>
 #if __has_include(<tf2_eigen/tf2_eigen.hpp>)
 #include <tf2_eigen/tf2_eigen.hpp>
 #else
@@ -65,29 +69,29 @@ static const std::string PLANNING_SERVICE = "generate_motion_plan";
 static const std::string FREESPACE_PLANNING_SERVICE = "generate_freespace_motion_plan";
 static const std::string REMOVE_SCAN_LINK_SERVICE = "remove_scan_link";
 
-tesseract_common::Toolpath fromMsg(const std::vector<snp_msgs::msg::ToolPath>& paths)
-{
-  tesseract_common::Toolpath tps;
-  tps.reserve(paths.size());
-  for (const auto& path : paths)
-  {
-    for (const auto& segment : path.segments)
-    {
-      tesseract_common::VectorIsometry3d seg;
-      seg.reserve(segment.poses.size());
-      for (const auto& pose : segment.poses)
-      {
-        Eigen::Isometry3d p;
-        tf2::fromMsg(pose, p);
-        // // Rotate the pose 180 degrees about the x-axis such that the z-axis faces into the part
-        // p *= Eigen::AngleAxisd(M_PI, Eigen::Vector3d::UnitX());
-        seg.push_back(p);
-      }
-      tps.push_back(seg);
-    }
-  }
-  return tps;
-}
+// tesseract_common::Toolpath fromMsg(const std::vector<snp_msgs::msg::ToolPath>& paths)
+// {
+//   tesseract_common::Toolpath tps;
+//   tps.reserve(paths.size());
+//   for (const auto& path : paths)
+//   {
+//     for (const auto& segment : path.segments)
+//     {
+//       tesseract_common::VectorIsometry3d seg;
+//       seg.reserve(segment.poses.size());
+//       for (const auto& pose : segment.poses)
+//       {
+//         Eigen::Isometry3d p;
+//         tf2::fromMsg(pose, p);
+//         // // Rotate the pose 180 degrees about the x-axis such that the z-axis faces into the part
+//         // p *= Eigen::AngleAxisd(M_PI, Eigen::Vector3d::UnitX());
+//         seg.push_back(p);
+//       }
+//       tps.push_back(seg);
+//     }
+//   }
+//   return tps;
+// }
 
 class MoveItPlanningServer
 {
@@ -157,7 +161,7 @@ class MoveItPlanningServer
 
         if(!req->mesh_filename.empty())
         {
-            std::shared_ptr<shapes::Mesh> mesh = shapes::createMeshFromResource(mesh_filename);
+            shapes::Mesh* mesh = shapes::createMeshFromResource(mesh_filename);
             if(mesh)
             {
                 moveit_msgs::msg::CollisionObject collision_object;
@@ -165,13 +169,16 @@ class MoveItPlanningServer
                 collision_object.header.frame_id = mesh_frame;
                 shape_msgs::msg::Mesh mesh_msg;
                 shapes::ShapeMsg shape_msg;
-                shapes::constructMsgFromShape(mesh.get(), shape_msg);
-                mesh_msg = boost::get<shape_msgs::msg::Mesh>(mesh_shape_msg);
+                shapes::constructMsgFromShape(mesh, shape_msg);
+                mesh_msg = boost::get<shape_msgs::msg::Mesh>(shape_msg);
                 collision_object.meshes.push_back(mesh_msg);
                 collision_object.mesh_poses.push_back(geometry_msgs::msg::Pose());
                 collision_object.operation = collision_object.ADD;
 
-                psm->applyCollisionObject(collision_object);
+                {
+                    planning_scene_monitor::LockedPlanningSceneRW ps(psm_);
+                    ps->processCollisionObjectMsg(collision_object);
+                }
             }
             else
             {
@@ -196,7 +203,9 @@ class MoveItPlanningServer
             return;
         }
 
-        res->trajectory = plan_solution.trajectory->getRobotTrajectoryMsg();
+        moveit_msgs::msg::RobotTrajectory traj_msg;
+        plan_solution.trajectory->getRobotTrajectoryMsg(traj_msg, {});
+        res->trajectory = traj_msg.joint_trajectory;
         res->success = true;
         res->message = "Succesfully planned motion";
     }

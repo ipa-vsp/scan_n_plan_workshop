@@ -20,6 +20,7 @@
   <depend>tesseract_urdf</depend>
   <depend>tesseract_kinematics</depend>
   <depend>tf2_eigen</depend>
+  <depend>moveit_visual_tools</depend>
 
   <export>
     <build_type>ament_cmake</build_type>

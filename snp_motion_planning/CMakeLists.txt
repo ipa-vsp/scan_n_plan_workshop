@@ -17,11 +17,14 @@ set(ROS2_DEPS
     tf2_eigen)
 
 set(ROS2_MOVEIT_DEPS
+  snp_msgs
+  std_srvs
   moveit_ros_planning
   Eigen3
   eigen3_cmake_module
   Boost
   moveit_visual_tools
+  geometric_shapes
 )
 
 find_package(ament_cmake REQUIRED)
@@ -43,7 +46,7 @@ find_package(yaml-cpp REQUIRED)
 
 # MoveIt Plannint Server
 add_executable(${PROJECT_NAME}_moveit_node src/moveit_planning_server.cpp)
-ament_target_dependencies(${PROJECT_NAME}_moveit_node ${ROS2_DEPS} ${ROS2_MOVEIT_DEPS})
+ament_target_dependencies(${PROJECT_NAME}_moveit_node ${ROS2_MOVEIT_DEPS})
 
 # Planning server
 add_executable(${PROJECT_NAME}_node src/planning_server.cpp)
