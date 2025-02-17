@@ -3,6 +3,8 @@
 #include <noether_gui/widgets/configurable_tpp_pipeline_widget.h>
 #include <pcl/io/vtk_lib_io.h>
 #include <QVBoxLayout>
+#include <QAction>
+#include <QToolBar>
 #if __has_include(<tf2_eigen/tf2_eigen.hpp>)
 #include <tf2_eigen/tf2_eigen.hpp>
 #else
@@ -55,6 +57,23 @@ TPPWidget::TPPWidget(rclcpp::Node::SharedPtr node, boost_plugin_loader::PluginLo
 {
   auto layout = new QVBoxLayout(this);
 
+  // Create toolbar
+  auto* tool_bar = new QToolBar(this);
+
+  // Create "Load TPP configuration" action
+  auto* load_action = new QAction(QIcon::fromTheme("document-properties"), "Load TPP configuration...", this);
+  load_action->setToolTip("Load TPP configuration from file...");
+  load_action->setShortcut(QKeySequence("Ctrl+C"));  // Match shortcut in noether
+  tool_bar->addAction(load_action);
+
+  // Create "Save TPP configuration" action
+  auto* save_action = new QAction(QIcon::fromTheme("document-save"), "Save TPP configuration...", this);
+  save_action->setToolTip("Save TPP configuration...");
+  save_action->setShortcut(QKeySequence("Ctrl+S"));  // Match shortcut in noether
+  tool_bar->addAction(save_action);
+
+  layout->addWidget(tool_bar);
+
   pipeline_widget_ = new noether::ConfigurableTPPPipelineWidget(std::move(loader), this);
   layout->addWidget(pipeline_widget_);
 
@@ -68,6 +87,34 @@ TPPWidget::TPPWidget(rclcpp::Node::SharedPtr node, boost_plugin_loader::PluginLo
   node->get_parameter("config_file", config_file);
   if (!config_file.empty())
     pipeline_widget_->configure(QString::fromStdString(config_file));
+
+  param_callback_ =
+      node->add_on_set_parameters_callback(std::bind(&TPPWidget::parametersCallback, this, std::placeholders::_1));
+
+  connect(load_action, &QAction::triggered, pipeline_widget_,
+          &noether::ConfigurableTPPPipelineWidget::onLoadConfiguration);
+  connect(save_action, &QAction::triggered, pipeline_widget_,
+          &noether::ConfigurableTPPPipelineWidget::onSaveConfiguration);
+}
+
+rcl_interfaces::msg::SetParametersResult TPPWidget::parametersCallback(const std::vector<rclcpp::Parameter>& parameters)
+{
+  rcl_interfaces::msg::SetParametersResult result;
+  result.successful = true;
+
+  for (const auto& param : parameters)
+  {
+    if (param.get_name() == "config_file")
+    {
+      const std::string config_file = param.as_string();
+      if (!config_file.empty())
+      {
+        pipeline_widget_->configure(QString::fromStdString(config_file));
+      }
+    }
+  }
+
+  return result;
 }
 
 void TPPWidget::callback(const snp_msgs::srv::GenerateToolPaths::Request::SharedPtr req,
