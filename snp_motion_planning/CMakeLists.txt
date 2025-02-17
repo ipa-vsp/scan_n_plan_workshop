@@ -16,10 +16,23 @@ set(ROS2_DEPS
     tesseract_monitoring
     tf2_eigen)
 
+set(ROS2_MOVEIT_DEPS
+  moveit_ros_planning
+  Eigen3
+  eigen3_cmake_module
+  Boost
+  moveit_visual_tools
+)
+
 find_package(ament_cmake REQUIRED)
 foreach(dep ${ROS2_DEPS})
   find_package(${dep} REQUIRED)
 endforeach()
+
+foreach(dep ${ROS2_MOVEIT_DEPS})
+  find_package(${dep} REQUIRED)
+endforeach()
+
 
 find_package(descartes_light REQUIRED)
 find_package(tesseract_command_language REQUIRED)
@@ -27,6 +40,10 @@ find_package(tesseract_task_composer REQUIRED)
 find_package(tesseract_kinematics REQUIRED)
 find_package(LAPACK REQUIRED) # Requried for ikfast
 find_package(yaml-cpp REQUIRED)
+
+# MoveIt Plannint Server
+add_executable(${PROJECT_NAME}_moveit_node src/moveit_planning_server.cpp)
+ament_target_dependencies(${PROJECT_NAME}_moveit_node ${ROS2_DEPS} ${ROS2_MOVEIT_DEPS})
 
 # Planning server
 add_executable(${PROJECT_NAME}_node src/planning_server.cpp)

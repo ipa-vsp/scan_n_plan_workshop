@@ -42,7 +42,7 @@ BTCPP_EXPORT void BT_RegisterRosNodeFromPlugin(BT::BehaviorTreeFactory& factory,
 
   // Nodes requiring parameters
   // Update trajectory start state
-  try_declare_parameter<double>(params.nh, START_STATE_REPLACEMENT_TOLERANCE_PARAM, 1.0 * M_PI / 180.0);
+  try_declare_parameter<double>(params.nh, START_STATE_REPLACEMENT_TOLERANCE_PARAM, 90 * M_PI / 180.0);
   factory.registerNodeType<snp_application::UpdateTrajectoryStartStateNode>("UpdateTrajectoryStartState", params.nh);
 
   // Motion plan generation

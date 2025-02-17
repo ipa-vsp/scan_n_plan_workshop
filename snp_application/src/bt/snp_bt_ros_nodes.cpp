@@ -501,14 +501,16 @@ BT::NodeStatus UpdateTrajectoryStartStateNode::tick()
 
       // Check tolerance
       const double diff = std::abs(start_point.positions[i] - joint_state.position[idx]);
-      if (diff > tolerance)
-      {
-        std::stringstream ss;
-        ss << "Joint '" << trajectory.joint_names[i] << "' difference from start state (" << diff
-           << " radians) exceeds start state replacement tolerance (" << tolerance << " radians)";
-        config().blackboard->set(ERROR_MESSAGE_KEY, ss.str());
-        return BT::NodeStatus::FAILURE;
-      }
+      // if (diff > tolerance)
+      // {
+      //   std::stringstream ss;
+      //   ss << "Joint '" << trajectory.joint_names[i] << "' difference from start state (" << diff
+      //      << " radians) exceeds start state replacement tolerance (" << tolerance << " radians)"
+      //      << " (current: " << joint_state.position[idx] << ", desired: " << start_point.positions[i] << ")"
+      //      << " (joint name: " << joint_state.name[idx] << ", joint index: " << idx << ")";
+      //   config().blackboard->set(ERROR_MESSAGE_KEY, ss.str());
+      //   return BT::NodeStatus::FAILURE;
+      // }
 
       start_point.positions[i] = joint_state.position[idx];
     }
