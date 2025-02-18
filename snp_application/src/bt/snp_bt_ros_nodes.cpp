@@ -155,6 +155,8 @@ BT::NodeStatus GenerateToolPathsServiceNode::onResponseReceived(const typename R
     for (geometry_msgs::msg::PoseArray& arr : tp.segments)
     {
       arr.header.frame_id = ref_frame;
+      RCLCPP_INFO_STREAM(node_->get_logger(), "Poses:  X: " << arr.poses[0].position.x << " Y: " << arr.poses[0].position.y
+                                                             << " Z: " << arr.poses[0].position.z);
     }
   }
 

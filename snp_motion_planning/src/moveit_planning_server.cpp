@@ -99,34 +99,32 @@ class MoveItPlanningServer
         MoveItPlanningServer(rclcpp::Node::SharedPtr node): node_(node)
         {
             // Declare ROS parameters
-            node_->declare_parameter("robot_description", "");
-            node_->declare_parameter("robot_description_semantic", "");
-            node_->declare_parameter(VERBOSE_PARAM, false);
-            node_->declare_parameter<std::vector<std::string>>(SCAN_DISABLED_CONTACT_LINKS, {});
-            node_->declare_parameter<std::vector<std::string>>(SCAN_REDUCED_CONTACT_LINKS_PARAM, {});
-            node_->declare_parameter(OCTREE_RESOLUTION_PARAM, 0.010);
-            node_->declare_parameter(COLLISION_OBJECT_TYPE_PARAM, "convex_mesh");
+            // node_->declare_parameter(VERBOSE_PARAM, false);
+            // node_->declare_parameter<std::vector<std::string>>(SCAN_DISABLED_CONTACT_LINKS, {});
+            // node_->declare_parameter<std::vector<std::string>>(SCAN_REDUCED_CONTACT_LINKS_PARAM, {});
+            // node_->declare_parameter(OCTREE_RESOLUTION_PARAM, 0.010);
+            // node_->declare_parameter(COLLISION_OBJECT_TYPE_PARAM, "convex_mesh");
 
-            // Profiles
-            node_->declare_parameter(MAX_TRANS_VEL_PARAM, 0.05);
-            node_->declare_parameter(MAX_ROT_VEL_PARAM, 1.571);
-            node_->declare_parameter(MAX_TRANS_ACC_PARAM, 0.1);
-            node_->declare_parameter(MAX_ROT_ACC_PARAM, 3.14159);
-            node_->declare_parameter<bool>(CHECK_JOINT_ACC_PARAM, false);
-            node_->declare_parameter<double>(VEL_SCALE_PARAM, 1.0);
-            node_->declare_parameter<double>(ACC_SCALE_PARAM, 1.0);
-            node_->declare_parameter<double>(LVS_PARAM, 0.05);
-            node_->declare_parameter<double>(MIN_CONTACT_DIST_PARAM, 0.0);
-            node_->declare_parameter<double>(OMPL_MAX_PLANNING_TIME_PARAM, 5.0);
-            node_->declare_parameter<double>(TCP_MAX_SPEED_PARAM, 0.25);
-            node_->declare_parameter<std::vector<double>>(TRAJOPT_CARTESIAN_TOLERANCE_PARAM, { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 });
-            node_->declare_parameter<std::vector<double>>(TRAJOPT_CARTESIAN_COEFFICIENT_PARAM,
-                                                        { 2.5, 2.5, 2.5, 2.5, 2.5, 0.0 });
+            // // Profiles
+            // node_->declare_parameter(MAX_TRANS_VEL_PARAM, 0.05);
+            // node_->declare_parameter(MAX_ROT_VEL_PARAM, 1.571);
+            // node_->declare_parameter(MAX_TRANS_ACC_PARAM, 0.1);
+            // node_->declare_parameter(MAX_ROT_ACC_PARAM, 3.14159);
+            // node_->declare_parameter<bool>(CHECK_JOINT_ACC_PARAM, false);
+            // node_->declare_parameter<double>(VEL_SCALE_PARAM, 1.0);
+            // node_->declare_parameter<double>(ACC_SCALE_PARAM, 1.0);
+            // node_->declare_parameter<double>(LVS_PARAM, 0.05);
+            // node_->declare_parameter<double>(MIN_CONTACT_DIST_PARAM, 0.0);
+            // node_->declare_parameter<double>(OMPL_MAX_PLANNING_TIME_PARAM, 5.0);
+            // node_->declare_parameter<double>(TCP_MAX_SPEED_PARAM, 0.25);
+            // node_->declare_parameter<std::vector<double>>(TRAJOPT_CARTESIAN_TOLERANCE_PARAM, { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 });
+            // node_->declare_parameter<std::vector<double>>(TRAJOPT_CARTESIAN_COEFFICIENT_PARAM,
+            //                                             { 2.5, 2.5, 2.5, 2.5, 2.5, 0.0 });
 
-            // Task composer
-            node_->declare_parameter(TASK_COMPOSER_CONFIG_FILE_PARAM, "");
-            node_->declare_parameter(RASTER_TASK_NAME_PARAM, "");
-            node_->declare_parameter(FREESPACE_TASK_NAME_PARAM, "");
+            // // Task composer
+            // node_->declare_parameter(TASK_COMPOSER_CONFIG_FILE_PARAM, "");
+            // node_->declare_parameter(RASTER_TASK_NAME_PARAM, "");
+            // node_->declare_parameter(FREESPACE_TASK_NAME_PARAM, "");
 
             // Create MoveItCpp
             moveit_cpp_ = std::make_shared<moveit_cpp::MoveItCpp>(node_);
@@ -154,40 +152,42 @@ class MoveItPlanningServer
         std::string mesh_filename = req->mesh_filename;
         std::string mesh_frame = req->mesh_frame;
 
+        RCLCPP_INFO(node_->get_logger(), "Received freespace motion planning request for group: %s", motion_group.c_str());
+
         auto planning_component = std::make_shared<moveit_cpp::PlanningComponent>(motion_group, moveit_cpp_);
         auto robot_model = moveit_cpp_->getRobotModel();
         auto robot_start_state = planning_component->getStartState();
         auto joint_model_group_ptr = robot_model->getJointModelGroup(motion_group);
 
-        if(!req->mesh_filename.empty())
-        {
-            shapes::Mesh* mesh = shapes::createMeshFromResource(mesh_filename);
-            if(mesh)
-            {
-                moveit_msgs::msg::CollisionObject collision_object;
-                collision_object.id = "scanned_mesh";
-                collision_object.header.frame_id = mesh_frame;
-                shape_msgs::msg::Mesh mesh_msg;
-                shapes::ShapeMsg shape_msg;
-                shapes::constructMsgFromShape(mesh, shape_msg);
-                mesh_msg = boost::get<shape_msgs::msg::Mesh>(shape_msg);
-                collision_object.meshes.push_back(mesh_msg);
-                collision_object.mesh_poses.push_back(geometry_msgs::msg::Pose());
-                collision_object.operation = collision_object.ADD;
+        // if(!req->mesh_filename.empty())
+        // {
+        //     shapes::Mesh* mesh = shapes::createMeshFromResource(mesh_filename);
+        //     if(mesh)
+        //     {
+        //         moveit_msgs::msg::CollisionObject collision_object;
+        //         collision_object.id = "scanned_mesh";
+        //         collision_object.header.frame_id = mesh_frame;
+        //         shape_msgs::msg::Mesh mesh_msg;
+        //         shapes::ShapeMsg shape_msg;
+        //         shapes::constructMsgFromShape(mesh, shape_msg);
+        //         mesh_msg = boost::get<shape_msgs::msg::Mesh>(shape_msg);
+        //         collision_object.meshes.push_back(mesh_msg);
+        //         collision_object.mesh_poses.push_back(geometry_msgs::msg::Pose());
+        //         collision_object.operation = collision_object.ADD;
 
-                {
-                    planning_scene_monitor::LockedPlanningSceneRW ps(psm_);
-                    ps->processCollisionObjectMsg(collision_object);
-                }
-            }
-            else
-            {
-                RCLCPP_ERROR(node_->get_logger(), "Failed to load mesh: %s", req->mesh_filename.c_str());
-                res->success = false;
-                res->message = "Failed to load mesh";
-                return;
-            }
-        }
+        //         {
+        //             planning_scene_monitor::LockedPlanningSceneRW ps(psm_);
+        //             ps->processCollisionObjectMsg(collision_object);
+        //         }
+        //     }
+        //     else
+        //     {
+        //         RCLCPP_ERROR(node_->get_logger(), "Failed to load mesh: %s", req->mesh_filename.c_str());
+        //         res->success = false;
+        //         res->message = "Failed to load mesh";
+        //         return;
+        //     }
+        // }
 
         planning_component->setStartStateToCurrentState();
         moveit::core::RobotState goal_state(robot_model);
@@ -208,6 +208,7 @@ class MoveItPlanningServer
         res->trajectory = traj_msg.joint_trajectory;
         res->success = true;
         res->message = "Succesfully planned motion";
+        RCLCPP_INFO(node_->get_logger(), "Succesfully planned motion");
     }
 
     private:
@@ -222,7 +223,9 @@ class MoveItPlanningServer
 int main(int argc, char** argv)
 {
     rclcpp::init(argc, argv);
-    auto node = std::make_shared<rclcpp::Node>("snp_moveit_planning_server");
+    rclcpp::NodeOptions options;
+    options.automatically_declare_parameters_from_overrides(true);
+    auto node = std::make_shared<rclcpp::Node>("snp_moveit_planning_server", options);
     auto server = std::make_shared<MoveItPlanningServer>(node);
     rclcpp::executors::MultiThreadedExecutor executor;
     executor.add_node(node);

@@ -12,6 +12,7 @@
   <arg name="octree_resolution" default="0.010"/>
   <!-- Task Composer -->
   <arg name="task_composer_config_file" default="$(find-pkg-share snp_motion_planning)/config/task_composer_plugins.yaml"/>
+  <arg name="moveit_cpp_parameters_file" default="$(find-pkg-share snp_motion_planning)/config/moveitcpp.yaml"/>
   <arg name="raster_task_name" default="SNPPipeline"/>
   <arg name="freespace_task_name" default="SNPFreespacePipeline"/>
   <!-- Profiles -->
@@ -29,10 +30,11 @@
   <arg name="cartesian_tolerance" default="[0.01, 0.01, 0.01, 0.05, 0.05, 6.28]"/>
   <arg name="cartesian_coefficient" default="[2.5, 2.5, 2.5, 2.5, 2.5, 0.0]"/>
 
-  <node pkg="snp_motion_planning" exec="snp_motion_planning_node" output="screen">
+  <node pkg="snp_motion_planning" exec="snp_motion_planning_moveit_node" output="screen">
     <!-- General -->
     <param name="robot_description" value="$(var robot_description)"/>
     <param name="robot_description_semantic" value="$(var robot_description_semantic)"/>
+    <param from="$(var moveit_cpp_parameters_file)"/>
     <param name="verbose" value="$(var verbose)"/>
     <param name="scan_disabled_contact_links" value="$(var scan_disabled_contact_links)"/>
     <param name="scan_reduced_contact_links" value="$(var scan_reduced_contact_links)"/>

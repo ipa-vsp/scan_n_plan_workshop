@@ -90,6 +90,9 @@ target_link_libraries(
 # Install the executable(s)
 install(TARGETS ${PROJECT_NAME}_node DESTINATION lib/${PROJECT_NAME})
 
+# Install the executable(s)
+install(TARGETS ${PROJECT_NAME}_moveit_node DESTINATION lib/${PROJECT_NAME})
+
 # Install the library(ies)
 install(TARGETS ${PROJECT_NAME}_plugins ${PROJECT_NAME}_tasks EXPORT ${PROJECT_NAME}-targets DESTINATION lib)
 
