@@ -138,8 +138,8 @@ class MoveItPlanningServer
 
             freespace_server_ = node_->create_service<snp_msgs::srv::GenerateFreespaceMotionPlan>(
                 FREESPACE_PLANNING_SERVICE, std::bind(&MoveItPlanningServer::processFreespaceMotionPlanCallback, this, std::placeholders::_1, std::placeholders::_2));
-            // raster_server_ = node_->create_service<snp_msgs::srv::GenerateMotionPlan>(
-            //     PLANNING_SERVICE, std::bind(&MoveItPlanningServer::processMotionPlanCallback, this, std::placeholders::_1, std::placeholders::_2));
+            raster_server_ = node_->create_service<snp_msgs::srv::GenerateMotionPlan>(
+                PLANNING_SERVICE, std::bind(&MoveItPlanningServer::processMotionPlanCallback, this, std::placeholders::_1, std::placeholders::_2));
         }
     
     void processFreespaceMotionPlanCallback (const snp_msgs::srv::GenerateFreespaceMotionPlan::Request::SharedPtr req,
@@ -209,6 +209,51 @@ class MoveItPlanningServer
         res->success = true;
         res->message = "Succesfully planned motion";
         RCLCPP_INFO(node_->get_logger(), "Succesfully planned motion");
+    }
+
+    void processMotionPlanCallback (const snp_msgs::srv::GenerateMotionPlan::Request::SharedPtr req,
+                                   snp_msgs::srv::GenerateMotionPlan::Response::SharedPtr res)
+    {
+        try
+        {
+            RCLCPP_INFO(node_->get_logger(), "Received motion planning request");
+            if(req->motion_group.empty())
+                throw std::runtime_error("Motion group is empty");
+            if(req->tcp_frame.empty())
+                throw std::runtime_error("TCP frame is empty");
+            if(req->tool_paths.empty())
+                throw std::runtime_error("Tool paths are empty");
+            
+            auto planning_component = std::make_shared<moveit_cpp::PlanningComponent>(req->motion_group, moveit_cpp_);
+            auto robot_model = moveit_cpp_->getRobotModel();
+            auto joint_model_group_ptr = robot_model->getJointModelGroup(req->motion_group);
+
+            planning_component->setStartStateToCurrentState();
+            moveit::core::RobotState goal_state(robot_model);
+            std::vector<geometry_msgs::msg::PoseStamped> waypoints;
+            for(const auto& pose: req->tool_paths)
+            {
+                for(const auto& segment: pose.segments)
+                {
+                    geometry_msgs::msg::PoseStamped pose_stamped;
+                    pose_stamped.header.frame_id = req->tcp_frame;
+                    pose_stamped.pose = segment.poses[0];
+                    waypoints.push_back(pose_stamped);
+                }
+            }
+
+            // moveit_msgs::msg::RobotTrajectory traj_msg;
+            // double fraction = planning_component->computeCartesianPath(waypoints, 0.01, 0.0, traj_msg, true);
+            // if(fraction < 0.9)
+            //     throw std::runtime_error("Failed to compute cartesian path");
+            
+            
+        }
+        catch(const std::exception& e)
+        {
+            std::cerr << e.what() << '\n';
+        }
+        
     }
 
     private:
