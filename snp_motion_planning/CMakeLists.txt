@@ -46,6 +46,10 @@ find_package(yaml-cpp REQUIRED)
 
 # MoveIt Plannint Server
 add_executable(${PROJECT_NAME}_moveit_node src/moveit_planning_server.cpp)
+target_include_directories(
+  ${PROJECT_NAME}_moveit_node
+  PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+         $<INSTALL_INTERFACE:include>)
 ament_target_dependencies(${PROJECT_NAME}_moveit_node ${ROS2_MOVEIT_DEPS})
 
 # Planning server
@@ -95,6 +99,9 @@ install(TARGETS ${PROJECT_NAME}_moveit_node DESTINATION lib/${PROJECT_NAME})
 
 # Install the library(ies)
 install(TARGETS ${PROJECT_NAME}_plugins ${PROJECT_NAME}_tasks EXPORT ${PROJECT_NAME}-targets DESTINATION lib)
+
+# Install the header(s)
+install(DIRECTORY include/ DESTINATION include)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

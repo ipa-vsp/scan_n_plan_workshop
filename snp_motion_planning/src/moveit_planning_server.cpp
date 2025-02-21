@@ -27,6 +27,8 @@
 #include <tf2_eigen/tf2_eigen.h>
 #endif
 
+#include "snp_motion_planning/cartesian_planner.hpp"
+
 static const std::string TRANSITION_PLANNER = "TRANSITION";
 static const std::string FREESPACE_PLANNER = "FREESPACE";
 static const std::string RASTER_PLANNER = "RASTER";
@@ -212,7 +214,7 @@ class MoveItPlanningServer
     }
 
     void processMotionPlanCallback (const snp_msgs::srv::GenerateMotionPlan::Request::SharedPtr req,
-                                   snp_msgs::srv::GenerateMotionPlan::Response::SharedPtr res)
+                                    snp_msgs::srv::GenerateMotionPlan::Response::SharedPtr res)
     {
         try
         {
@@ -223,37 +225,93 @@ class MoveItPlanningServer
                 throw std::runtime_error("TCP frame is empty");
             if(req->tool_paths.empty())
                 throw std::runtime_error("Tool paths are empty");
-            
+
             auto planning_component = std::make_shared<moveit_cpp::PlanningComponent>(req->motion_group, moveit_cpp_);
             auto robot_model = moveit_cpp_->getRobotModel();
             auto joint_model_group_ptr = robot_model->getJointModelGroup(req->motion_group);
 
+            if (!joint_model_group_ptr)
+                throw std::runtime_error("Invalid JointModelGroup for motion group: " + req->motion_group);
+
             planning_component->setStartStateToCurrentState();
-            moveit::core::RobotState goal_state(robot_model);
-            std::vector<geometry_msgs::msg::PoseStamped> waypoints;
-            for(const auto& pose: req->tool_paths)
+            moveit::core::RobotState start_state(*moveit_cpp_->getCurrentState());
+
+            EigenSTL::vector_Isometry3d waypoints;
+            for (const auto& pose : req->tool_paths)
             {
-                for(const auto& segment: pose.segments)
+                for (const auto& segment : pose.segments)
                 {
-                    geometry_msgs::msg::PoseStamped pose_stamped;
-                    pose_stamped.header.frame_id = req->tcp_frame;
-                    pose_stamped.pose = segment.poses[0];
-                    waypoints.push_back(pose_stamped);
+                    Eigen::Isometry3d eigen_pose;
+                    tf2::fromMsg(segment.poses[0], eigen_pose);
+                    waypoints.push_back(eigen_pose);
                 }
             }
 
+            if (waypoints.empty())
+                throw std::runtime_error("No valid waypoints extracted from tool paths");
+
+            MaxEEFStep max_eef_step(0.01, 0.1);
+            CartesianPrecision cartesian_precision{.translational = 0.001,
+                                                    .rotational = 0.01,
+                                                    .max_resolution = 1e-3};
+
+            std::vector<moveit::core::RobotStatePtr> traj;
+            kinematics::KinematicsQueryOptions opts;
+            opts.return_approximate_solution = true;
+
+            // Cost function
+            const double weight = 0.0005;
+            const auto compute_l2_norm = [](const std::vector<double>& solution, const std::vector<double>& start) {
+                double sum = 0.0;
+                for (size_t ji = 0; ji < solution.size(); ji++)
+                {
+                    double d = solution[ji] - start[ji];
+                    sum += d * d;
+                }
+                return sum;
+            };
+
+            const auto cost_fn = [&weight, &compute_l2_norm](const geometry_msgs::msg::Pose& /*goal_pose*/,
+                                            const moveit::core::RobotState& solution_state,
+                                            const moveit::core::JointModelGroup* jmg,
+                                            const std::vector<double>& seed_state) {
+                std::vector<double> proposed_joint_positions;
+                solution_state.copyJointGroupPositions(jmg, proposed_joint_positions);
+                double cost = compute_l2_norm(proposed_joint_positions, seed_state);
+                return weight * cost;
+            };
+
+            CartesianPathPlanner planner;
+            Eigen::Isometry3d link_offset = Eigen::Isometry3d::Identity();
+
+            // Compute Cartesian path
+            Percentage per = planner.computeCartesianPath(&start_state, joint_model_group_ptr, traj,
+                                        robot_model->getLinkModel(req->tcp_frame), waypoints, true,
+                                        max_eef_step, cartesian_precision, callback_fn_,
+                                        opts, cost_fn, link_offset);
+
+            if (per < 1.0)
+                throw std::runtime_error("Cartesian path planning only completed " + std::to_string(per.value * 100) + "% of the path");
+
+            // Convert trajectory
             // moveit_msgs::msg::RobotTrajectory traj_msg;
-            // double fraction = planning_component->computeCartesianPath(waypoints, 0.01, 0.0, traj_msg, true);
-            // if(fraction < 0.9)
-            //     throw std::runtime_error("Failed to compute cartesian path");
+            // moveit::core::RobotTrajectory robot_trajectory(robot_model, req->motion_group);
+            // for (const auto& state : traj)
+            // {
+            //     robot_trajectory.addSuffixWayPoint(*state, 0.01);
+            // }
             
-            
+            // robot_trajectory.getRobotTrajectoryMsg(traj_msg);
+
+            // res->trajectory = traj_msg;
+            res->success = true;
+            RCLCPP_INFO(node_->get_logger(), "Cartesian path planning succeeded");
         }
-        catch(const std::exception& e)
+        catch (const std::exception &e)
         {
-            std::cerr << e.what() << '\n';
+            RCLCPP_ERROR(node_->get_logger(), "Motion planning failed: %s", e.what());
+            res->success = false;
         }
-        
     }
 
     private:
@@ -263,6 +321,7 @@ class MoveItPlanningServer
         rclcpp::Service<std_srvs::srv::Empty>::SharedPtr remove_scan_link_server_;
         moveit_cpp::MoveItCppPtr moveit_cpp_;
         planning_scene_monitor::PlanningSceneMonitorPtr psm_;
+        GroupStateValidityCallbackFn callback_fn_;
 };
 
 int main(int argc, char** argv)

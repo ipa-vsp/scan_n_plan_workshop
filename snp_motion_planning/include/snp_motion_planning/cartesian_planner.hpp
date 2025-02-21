@@ -81,9 +81,9 @@ public:
         pose.translation() += global_reference_frame ? translation : pose.linear() * translation;
 
         // call computeCartesianPath for the computed target pose in the global reference frame
-        return Distance(distance) * this->computeCartesianPath(start_state, group, traj, link, pose, true,
-                                                                                max_step, precision, validCallback, options,
-                                                                                cost_function);
+        return Distance(distance) * this->computeCartesianPath(start_state, group, traj, link, pose.translation(), true,
+                                                        max_step, precision, validCallback, options,
+                                                        cost_function);
     }
 
     Percentage computeCartesianPath(
@@ -171,17 +171,18 @@ public:
 
             std::vector<moveit::core::RobotStatePtr>::iterator start = waypoint_traj.begin();
             if (i > 0 && !waypoint_traj.empty())
-            std::advance(start, 1);
+                std::advance(start, 1);
+            
             traj.insert(traj.end(), start, waypoint_traj.end());
 
             if (fabs(wp_percentage_solved - 1.0) < std::numeric_limits<double>::epsilon())
             {
-            percentage_solved = static_cast<double>(i + 1) / static_cast<double>(waypoints.size());
+                percentage_solved = static_cast<double>(i + 1) / static_cast<double>(waypoints.size());
             }
             else
             {
-            percentage_solved += wp_percentage_solved / static_cast<double>(waypoints.size());
-            break;
+                percentage_solved += wp_percentage_solved / static_cast<double>(waypoints.size());
+                break;
             }
             start_state = traj.back().get();
         }
