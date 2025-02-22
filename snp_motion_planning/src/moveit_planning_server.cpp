@@ -3,6 +3,7 @@
 // MoveitCpp
 #include <moveit/moveit_cpp/moveit_cpp.h>
 #include <moveit/moveit_cpp/planning_component.h>
+#include <moveit_msgs/msg/robot_trajectory.hpp>
 #include <geometry_msgs/msg/point_stamped.h>
 #include <sensor_msgs/msg/joint_state.h>
 #include <trajectory_msgs/msg/joint_trajectory.h>
@@ -271,41 +272,78 @@ class MoveItPlanningServer
                 return sum;
             };
 
-            const auto cost_fn = [&weight, &compute_l2_norm](const geometry_msgs::msg::Pose& /*goal_pose*/,
-                                            const moveit::core::RobotState& solution_state,
-                                            const moveit::core::JointModelGroup* jmg,
-                                            const std::vector<double>& seed_state) {
-                std::vector<double> proposed_joint_positions;
-                solution_state.copyJointGroupPositions(jmg, proposed_joint_positions);
-                double cost = compute_l2_norm(proposed_joint_positions, seed_state);
-                return weight * cost;
-            };
+            // const auto cost_fn = [&weight, &compute_l2_norm](const geometry_msgs::msg::Pose& /*goal_pose*/,
+            //                                 const moveit::core::RobotState& solution_state,
+            //                                 const moveit::core::JointModelGroup* jmg,
+            //                                 const std::vector<double>& seed_state) {
+            //     std::vector<double> proposed_joint_positions;
+            //     solution_state.copyJointGroupPositions(jmg, proposed_joint_positions);
+            //     double cost = compute_l2_norm(proposed_joint_positions, seed_state);
+            //     return weight * cost;
+            // };
+
+            auto cost_fn = kinematics::KinematicsBase::IKCostFn();
 
             CartesianPathPlanner planner;
             Eigen::Isometry3d link_offset = Eigen::Isometry3d::Identity();
 
             // Compute Cartesian path
+            RCLCPP_INFO(node_->get_logger(), "Computing Cartesian path");
             Percentage per = planner.computeCartesianPath(&start_state, joint_model_group_ptr, traj,
                                         robot_model->getLinkModel(req->tcp_frame), waypoints, true,
                                         max_eef_step, cartesian_precision, callback_fn_,
                                         opts, cost_fn, link_offset);
 
-            if (per < 1.0)
+            if (per < 0.85)
                 throw std::runtime_error("Cartesian path planning only completed " + std::to_string(per.value * 100) + "% of the path");
 
-            // Convert trajectory
-            // moveit_msgs::msg::RobotTrajectory traj_msg;
-            // moveit::core::RobotTrajectory robot_trajectory(robot_model, req->motion_group);
-            // for (const auto& state : traj)
-            // {
-            //     robot_trajectory.addSuffixWayPoint(*state, 0.01);
-            // }
+            std::cout << "Cartesian path planning completed " << per.value * 100 << "% of the path" << std::endl;
+            std::cout << "Number of waypoints: " << traj.size() << std::endl;
+    
+            if (traj.empty())
+                throw std::runtime_error("Generated trajectory is empty.");
             
-            // robot_trajectory.getRobotTrajectoryMsg(traj_msg);
+            moveit_msgs::msg::RobotTrajectory traj_msg;
+            traj_msg.joint_trajectory.header.stamp = rclcpp::Clock().now();
+            traj_msg.joint_trajectory.joint_names = joint_model_group_ptr->getVariableNames();
 
-            // res->trajectory = traj_msg;
+            for (int i = 0; i < traj.size(); i++)
+            {
+                trajectory_msgs::msg::JointTrajectoryPoint point;
+                std::vector<double> joint_values;
+                traj[i]->copyJointGroupPositions(joint_model_group_ptr, joint_values);
+                point.positions = joint_values;
+                point.time_from_start = rclcpp::Duration::from_seconds(0.1 * i); 
+                traj_msg.joint_trajectory.points.push_back(point);
+            }
+            std::cout << "Generated trajectory with " << traj_msg.joint_trajectory.points.size() << " points" << std::endl;
+            // Split trajectory into approach, process, and departure
+            size_t total_points = traj_msg.joint_trajectory.points.size();
+            if (total_points < 3)
+                throw std::runtime_error("Trajectory does not have enough points to segment into approach, process, and departure.");
+
+            size_t approach_end = total_points / 3;
+            size_t departure_start = (2 * total_points) / 3;
+
+            // Assign first third to approach
+            res->approach.joint_names = traj_msg.joint_trajectory.joint_names;
+            res->approach.points.assign(traj_msg.joint_trajectory.points.begin(),
+                                        traj_msg.joint_trajectory.points.begin() + approach_end);
+
+            // Assign middle third to process
+            res->process.joint_names = traj_msg.joint_trajectory.joint_names;
+            res->process.points.assign(traj_msg.joint_trajectory.points.begin() + approach_end,
+                                    traj_msg.joint_trajectory.points.begin() + departure_start);
+
+            // Assign last third to departure
+            res->departure.joint_names = traj_msg.joint_trajectory.joint_names;
+            res->departure.points.assign(traj_msg.joint_trajectory.points.begin() + departure_start,
+                                        traj_msg.joint_trajectory.points.end());
+
             res->success = true;
-            RCLCPP_INFO(node_->get_logger(), "Cartesian path planning succeeded");
+            res->message = "Cartesian path planning succeeded";
+
+            RCLCPP_INFO(node_->get_logger(), "Motion planning succeeded.");
         }
         catch (const std::exception &e)
         {
