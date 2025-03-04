@@ -132,11 +132,11 @@ class MoveItPlanningServer
             // Create MoveItCpp
             moveit_cpp_ = std::make_shared<moveit_cpp::MoveItCpp>(node_);
             moveit_cpp_->getPlanningSceneMonitorNonConst()->providePlanningSceneService();
-            moveit_cpp_->getPlanningSceneMonitor()->startSceneMonitor();
-            moveit_cpp_->getPlanningSceneMonitor()->startStateMonitor();
-            moveit_cpp_->getPlanningSceneMonitor()->startWorldGeometryMonitor();
+            // moveit_cpp_->getPlanningSceneMonitor()->startSceneMonitor();
+            // moveit_cpp_->getPlanningSceneMonitor()->startStateMonitor();
+            // moveit_cpp_->getPlanningSceneMonitor()->startWorldGeometryMonitor();
 
-            psm_ = moveit_cpp_->getPlanningSceneMonitor();
+            // psm_ = moveit_cpp_->getPlanningSceneMonitor();
 
 
             freespace_server_ = node_->create_service<snp_msgs::srv::GenerateFreespaceMotionPlan>(

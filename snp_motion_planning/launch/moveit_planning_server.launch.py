@@ -35,7 +35,8 @@ def generate_launch_description():
         DeclareLaunchArgument("ompl_max_planning_time", default_value="5.0"),
         DeclareLaunchArgument("tcp_max_speed", default_value="0.25"),
         DeclareLaunchArgument("cartesian_tolerance", default_value="[0.01, 0.01, 0.01, 0.05, 0.05, 6.28]"),
-        DeclareLaunchArgument("cartesian_coefficient", default_value="[2.5, 2.5, 2.5, 2.5, 2.5, 0.0]")
+        DeclareLaunchArgument("cartesian_coefficient", default_value="[2.5, 2.5, 2.5, 2.5, 2.5, 0.0]"),
+        DeclareLaunchArgument("use_sim_time", default_value="true")
     ]
     
     moveit_config = (
@@ -76,6 +77,7 @@ def generate_launch_description():
             # {"tcp_max_speed": LaunchConfiguration("tcp_max_speed")},
             # {"cartesian_tolerance": LaunchConfiguration("cartesian_tolerance")},
             # {"cartesian_coefficient": LaunchConfiguration("cartesian_coefficient")},
+            {"use_sim_time": LaunchConfiguration("use_sim_time")},
             moveit_config.to_dict(),
         ]
     )
